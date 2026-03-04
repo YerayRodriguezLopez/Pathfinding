@@ -1,8 +1,9 @@
 ﻿<Solution>
   <Project Path="Unity.Timeline.csproj" />
   <Project Path="Unity.TestTools.CodeCoverage.Editor.csproj" />
-  <Project Path="Unity.PlasticSCM.Editor.csproj" />
+  <Project Path="Unity.Services.Core.Editor.csproj" />
   <Project Path="UnityEngine.Advertisements.Editor.csproj" />
+  <Project Path="Unity.PlasticSCM.Editor.csproj" />
   <Project Path="Unity.InputSystem.csproj" />
   <Project Path="Unity.Services.Core.Internal.csproj" />
   <Project Path="Unity.VisualScripting.Flow.csproj" />
@@ -31,7 +32,6 @@
   <Project Path="Unity.AI.Navigation.Editor.ConversionSystem.csproj" />
   <Project Path="Unity.VisualScripting.State.Editor.csproj" />
   <Project Path="Unity.InternalAPIEngineBridge.004.csproj" />
-  <Project Path="Unity.Services.Core.Editor.csproj" />
   <Project Path="Unity.Services.Core.Configuration.Editor.csproj" />
   <Project Path="Unity.Services.Core.csproj" />
   <Project Path="Unity.AI.Navigation.csproj" />
@@ -61,6 +61,7 @@
   <Project Path="UnityEngine.Purchasing.SecurityCore.csproj" />
   <Project Path="Unity.Services.Core.Scheduler.csproj" />
   <Project Path="Unity.Services.Core.Telemetry.csproj" />
+  <Project Path="Unity.CollabProxy.Editor.csproj" />
   <Project Path="Unity.Services.Core.Components.csproj" />
   <Project Path="UnityEngine.Purchasing.WinRTCore.csproj" />
   <Project Path="Purchasing.Common.csproj" />
@@ -68,7 +69,6 @@
   <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Unity.VisualScripting.DocCodeExamples.csproj" />
   <Project Path="Unity.InputSystem.TestFramework.csproj" />
-  <Project Path="Unity.CollabProxy.Editor.csproj" />
   <Project Path="Unity.Services.Core.Device.csproj" />
   <Project Path="UnityEditor.XR.LegacyInputHelpers.csproj" />
   <Project Path="UnityEngine.Purchasing.AppleCore.csproj" />
