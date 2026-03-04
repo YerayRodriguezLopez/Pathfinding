@@ -6,13 +6,9 @@ using TMPro;
 
 public class GameManager : MonoBehaviour
 {
-    public static GameManager Instance;
-
-    [Header("Grid")]
-    public int Size;
+    public int Size = 8;
     public BoxCollider2D Panel;
 
-    [Header("Tokens")]
     public GameObject tokenNode;
     public GameObject tokenOpen;
     public GameObject tokenClosed;
@@ -20,253 +16,246 @@ public class GameManager : MonoBehaviour
     public GameObject tokenStart;
     public GameObject tokenEnd;
 
-    [Header("Visualization")]
-    public float stepDelay = 0.05f;
+    public float stepDelay = 0.5f;
 
-    [Header("UI")]
     public Button startButton;
     public Button restartButton;
     public Button exitButton;
+
     public ScrollRect scrollRect;
     public TextMeshProUGUI logText;
+    public RectTransform logContent;
 
-    private Node[,] NodeMatrix;
-    private int startPosx, startPosy;
-    private int endPosx, endPosy;
+    private Node[,] nodeMatrix;
+    private GameObject[,] tokenObjects;
 
-    private List<GameObject> spawnedTokens = new List<GameObject>();
-    private List<GameObject> persistentTokens = new List<GameObject>();
+    private GameObject startTokenObj;
+    private GameObject endTokenObj;
 
-    private Coroutine astarCoroutine;
-
-    void Awake()
-    {
-        Instance = this;
-        Calculs.CalculateDistances(Panel, Size);
-    }
+    private int startX, startY, endX, endY;
+    private bool isRunning = false;
 
     void Start()
     {
-        if (startButton != null) startButton.onClick.AddListener(OnStartPressed);
-        if (restartButton != null) restartButton.onClick.AddListener(OnRestartPressed);
-        if (exitButton != null) exitButton.onClick.AddListener(OnExitPressed);
+        Calculs.CalculateDistances(Panel, Size);
 
-        if (restartButton != null) restartButton.interactable = false;
+        startButton.onClick.AddListener(OnStartClicked);
+        restartButton.onClick.AddListener(OnRestartClicked);
+        exitButton.onClick.AddListener(OnExitClicked);
 
         InitGrid();
     }
 
-    private void InitGrid()
+    void InitGrid()
     {
-        foreach (GameObject go in spawnedTokens)
-            if (go != null) Destroy(go);
-        spawnedTokens.Clear();
-
-        foreach (GameObject go in persistentTokens)
-            if (go != null) Destroy(go);
-        persistentTokens.Clear();
-
-        ClearLog();
-
-        startPosx = Random.Range(0, Size);
-        startPosy = Random.Range(0, Size);
-        do
+        if (tokenObjects != null)
         {
-            endPosx = Random.Range(0, Size);
-            endPosy = Random.Range(0, Size);
-        } while (endPosx == startPosx && endPosy == startPosy);
-
-        NodeMatrix = new Node[Size, Size];
-        CreateNodes();
-
-        Log($"<b>Grid initialised</b>  {Size}x{Size}");
-        Log($"Start -> ({startPosx},{startPosy})   End -> ({endPosx},{endPosy})");
-
-        SpawnPersistent(tokenStart, NodeMatrix[startPosx, startPosy].RealPosition);
-        SpawnPersistent(tokenEnd, NodeMatrix[endPosx, endPosy].RealPosition);
-
-        if (startButton != null) startButton.interactable = true;
-        if (restartButton != null) restartButton.interactable = false;
-    }
-
-    public void CreateNodes()
-    {
-        for (int i = 0; i < Size; i++)
-            for (int j = 0; j < Size; j++)
-            {
-                NodeMatrix[i, j] = new Node(i, j, Calculs.CalculatePoint(i, j));
-                NodeMatrix[i, j].Heuristic = Calculs.CalculateHeuristic(NodeMatrix[i, j], endPosx, endPosy);
-            }
-
-        for (int i = 0; i < Size; i++)
-            for (int j = 0; j < Size; j++)
-                SetWays(NodeMatrix[i, j], i, j);
-
-        for (int i = 0; i < Size; i++)
-            for (int j = 0; j < Size; j++)
-                SpawnToken(tokenNode, NodeMatrix[i, j].RealPosition);
-
-        RaisePeristentTokens();
-    }
-
-    public void OnStartPressed()
-    {
-        if (startButton != null) startButton.interactable = false;
-        if (restartButton != null) restartButton.interactable = true;
-
-        ClearLog();
-        Log("<b>A* started…</b>");
-        astarCoroutine = StartCoroutine(RunAStarVisual());
-    }
-
-    public void OnRestartPressed()
-    {
-        if (astarCoroutine != null)
-        {
-            StopCoroutine(astarCoroutine);
-            astarCoroutine = null;
+            for (int i = 0; i < Size; i++)
+                for (int j = 0; j < Size; j++)
+                    if (tokenObjects[i, j] != null)
+                        Destroy(tokenObjects[i, j]);
         }
 
-        if (startButton != null) startButton.interactable = true;
-        if (restartButton != null) restartButton.interactable = false;
+        if (startTokenObj != null) Destroy(startTokenObj);
+        if (endTokenObj != null) Destroy(endTokenObj);
+        startTokenObj = null;
+        endTokenObj = null;
 
+        nodeMatrix = new Node[Size, Size];
+        tokenObjects = new GameObject[Size, Size];
+
+        for (int i = 0; i < Size; i++)
+        {
+            for (int j = 0; j < Size; j++)
+            {
+                Vector2 pos = Calculs.CalculatePoint(i, j);
+                nodeMatrix[i, j] = new Node(i, j, pos);
+            }
+        }
+
+        for (int i = 0; i < Size; i++)
+        {
+            for (int j = 0; j < Size; j++)
+            {
+                nodeMatrix[i, j].WayList = new List<Way>();
+                int[] dx = { -1, 1, 0, 0 };
+                int[] dy = { 0, 0, -1, 1 };
+                for (int d = 0; d < 4; d++)
+                {
+                    int ni = i + dx[d];
+                    int nj = j + dy[d];
+                    if (ni >= 0 && ni < Size && nj >= 0 && nj < Size)
+                        nodeMatrix[i, j].WayList.Add(new Way(nodeMatrix[ni, nj], 1f));
+                }
+            }
+        }
+
+        startX = Random.Range(0, Size);
+        startY = Random.Range(0, Size);
+        do
+        {
+            endX = Random.Range(0, Size);
+            endY = Random.Range(0, Size);
+        } while (endX == startX && endY == startY);
+
+        for (int i = 0; i < Size; i++)
+            for (int j = 0; j < Size; j++)
+                nodeMatrix[i, j].Heuristic = Calculs.CalculateHeuristic(nodeMatrix[i, j], endX, endY);
+
+        for (int i = 0; i < Size; i++)
+        {
+            for (int j = 0; j < Size; j++)
+            {
+                Vector2 pos = Calculs.CalculatePoint(i, j);
+                tokenObjects[i, j] = Instantiate(tokenNode, pos, Quaternion.identity);
+            }
+        }
+
+        Vector2 startPos = Calculs.CalculatePoint(startX, startY);
+        Vector2 endPos = Calculs.CalculatePoint(endX, endY);
+
+        startTokenObj = Instantiate(tokenStart, startPos, Quaternion.identity);
+        endTokenObj = Instantiate(tokenEnd, endPos, Quaternion.identity);
+
+        SetSortingOrder(startTokenObj, 30);
+        SetSortingOrder(endTokenObj, 30);
+
+        logText.text = "";
+        ForceLayout();
+        AppendLog("Grid initialized. Press Start to run A*.");
+        isRunning = false;
+    }
+
+    void SetSortingOrder(GameObject obj, int order)
+    {
+        SpriteRenderer sr = obj.GetComponent<SpriteRenderer>();
+        if (sr != null) sr.sortingOrder = order;
+    }
+
+    void OnStartClicked()
+    {
+        if (!isRunning)
+            StartCoroutine(RunAStar());
+    }
+
+    void OnRestartClicked()
+    {
+        StopAllCoroutines();
+        isRunning = false;
         InitGrid();
     }
 
-    public void OnExitPressed()
+    void OnExitClicked()
     {
+        Application.Quit();
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
-#else
-        Application.Quit();
 #endif
     }
 
-    private IEnumerator RunAStarVisual()
+    IEnumerator RunAStar()
     {
+        isRunning = true;
+        AppendLog("Running A*...");
+
         List<Node> closedVisited;
         List<Node> openVisited;
 
         List<Node> path = AStarPathfinder.FindPath(
-            NodeMatrix,
-            startPosx, startPosy,
-            endPosx, endPosy,
+            nodeMatrix,
+            startX, startY,
+            endX, endY,
             out closedVisited,
-            out openVisited);
+            out openVisited
+        );
 
-        Log($"<color=#FFEE00>Exploring open list ({openVisited.Count} nodes)…</color>");
-        int openIdx = 0;
-        foreach (Node n in openVisited)
+        foreach (Node node in openVisited)
         {
-            SpawnToken(tokenOpen, n.RealPosition);
-            RaisePeristentTokens();
-            openIdx++;
-            Log($"  Open [{openIdx}]  ({n.PositionX},{n.PositionY})  " +
-                $"G={n.GCost:F2}  H={n.Heuristic:F2}  F={n.GCost + n.Heuristic:F2}");
+            if (node.PositionX == startX && node.PositionY == startY) continue;
+            if (node.PositionX == endX && node.PositionY == endY) continue;
+
+            ReplaceToken(node.PositionX, node.PositionY, tokenOpen);
+            EnsureStartEndOnTop();
+            AppendLog($"Open: ({node.PositionX}, {node.PositionY}) G={node.GCost:F2} H={node.Heuristic:F2}");
             yield return new WaitForSeconds(stepDelay);
         }
 
-        Log($"<color=#FA00D6>Marking closed list ({closedVisited.Count} nodes)…</color>");
-        int closedIdx = 0;
-        foreach (Node n in closedVisited)
+        foreach (Node node in closedVisited)
         {
-            SpawnToken(tokenClosed, n.RealPosition);
-            RaisePeristentTokens();
-            closedIdx++;
-            Log($"  Closed [{closedIdx}]  ({n.PositionX},{n.PositionY})");
+            if (node.PositionX == startX && node.PositionY == startY) continue;
+            if (node.PositionX == endX && node.PositionY == endY) continue;
+
+            ReplaceToken(node.PositionX, node.PositionY, tokenClosed);
+            EnsureStartEndOnTop();
+            AppendLog($"Closed: ({node.PositionX}, {node.PositionY})");
             yield return new WaitForSeconds(stepDelay);
         }
 
         if (path != null)
         {
-            Log($"<color=#00FA0F><b>Path found! {path.Count} nodes.</b></color>");
-            int pathIdx = 0;
-            foreach (Node n in path)
+            AppendLog($"Path found! Length: {path.Count}");
+            foreach (Node node in path)
             {
-                SpawnToken(tokenPath, n.RealPosition);
-                RaisePeristentTokens();
-                pathIdx++;
-                Log($"  Path [{pathIdx}]  ({n.PositionX},{n.PositionY})");
-                yield return new WaitForSeconds(stepDelay * 2f);
+                if (node.PositionX == startX && node.PositionY == startY) continue;
+                if (node.PositionX == endX && node.PositionY == endY) continue;
+
+                ReplaceToken(node.PositionX, node.PositionY, tokenPath);
+                EnsureStartEndOnTop();
+                AppendLog($"Path: ({node.PositionX}, {node.PositionY})");
+                yield return new WaitForSeconds(stepDelay);
             }
-            Log("<b>Done.</b>");
         }
         else
         {
-            Log("<color=red><b>No path found!</b></color>");
+            AppendLog("No path found!");
         }
 
-        if (restartButton != null) restartButton.interactable = true;
-        if (startButton != null) startButton.interactable = false;
-
-        astarCoroutine = null;
+        EnsureStartEndOnTop();
+        AppendLog("Done.");
+        isRunning = false;
     }
 
-    private void SpawnToken(GameObject prefab, Vector2 pos)
+    void ReplaceToken(int x, int y, GameObject prefab)
     {
-        if (prefab == null) return;
-        GameObject go = Instantiate(prefab, pos, Quaternion.identity);
-        spawnedTokens.Add(go);
+        if (tokenObjects[x, y] != null)
+            Destroy(tokenObjects[x, y]);
+
+        Vector2 pos = Calculs.CalculatePoint(x, y);
+        tokenObjects[x, y] = Instantiate(prefab, pos, Quaternion.identity);
+        SetSortingOrder(tokenObjects[x, y], 24);
     }
 
-    private void SpawnPersistent(GameObject prefab, Vector2 pos)
+    void EnsureStartEndOnTop()
     {
-        if (prefab == null) return;
-        GameObject go = Instantiate(prefab, pos, Quaternion.identity);
-        persistentTokens.Add(go);
-    }
-
-    private void RaisePeristentTokens()
-    {
-        foreach (GameObject go in persistentTokens)
-            if (go != null)
-                go.transform.SetAsLastSibling();
-    }
-
-    public void SetWays(Node node, int x, int y)
-    {
-        node.WayList = new List<Way>();
-        if (x > 0)
+        if (startTokenObj != null)
         {
-            node.WayList.Add(new Way(NodeMatrix[x - 1, y], Calculs.LinearDistance));
-            if (y > 0)
-                node.WayList.Add(new Way(NodeMatrix[x - 1, y - 1], Calculs.DiagonalDistance));
+            startTokenObj.transform.position = (Vector3)Calculs.CalculatePoint(startX, startY) + Vector3.back * 0.1f;
+            SetSortingOrder(startTokenObj, 30);
         }
-        if (x < Size - 1)
+        if (endTokenObj != null)
         {
-            node.WayList.Add(new Way(NodeMatrix[x + 1, y], Calculs.LinearDistance));
-            if (y > 0)
-                node.WayList.Add(new Way(NodeMatrix[x + 1, y - 1], Calculs.DiagonalDistance));
-        }
-        if (y > 0)
-            node.WayList.Add(new Way(NodeMatrix[x, y - 1], Calculs.LinearDistance));
-        if (y < Size - 1)
-        {
-            node.WayList.Add(new Way(NodeMatrix[x, y + 1], Calculs.LinearDistance));
-            if (x > 0)
-                node.WayList.Add(new Way(NodeMatrix[x - 1, y + 1], Calculs.DiagonalDistance));
-            if (x < Size - 1)
-                node.WayList.Add(new Way(NodeMatrix[x + 1, y + 1], Calculs.DiagonalDistance));
+            endTokenObj.transform.position = (Vector3)Calculs.CalculatePoint(endX, endY) + Vector3.back * 0.1f;
+            SetSortingOrder(endTokenObj, 30);
         }
     }
 
-    private void Log(string message)
+    void AppendLog(string message)
     {
-        if (logText == null) return;
         logText.text += message + "\n";
-        if (scrollRect != null)
-            StartCoroutine(ScrollToBottom());
+        ForceLayout();
+        StartCoroutine(ScrollToBottom());
     }
 
-    private void ClearLog()
+    void ForceLayout()
     {
-        if (logText != null) logText.text = "";
+        LayoutRebuilder.ForceRebuildLayoutImmediate(logContent);
+        Canvas.ForceUpdateCanvases();
     }
 
-    private IEnumerator ScrollToBottom()
+    IEnumerator ScrollToBottom()
     {
-        yield return new WaitForEndOfFrame();
-        if (scrollRect != null)
-            scrollRect.verticalNormalizedPosition = 0f;
+        yield return null;
+        yield return null;
+        scrollRect.verticalNormalizedPosition = 0f;
     }
 }
