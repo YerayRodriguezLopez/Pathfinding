@@ -65,16 +65,13 @@ public class GameManager : MonoBehaviour
         tokenObjects = new GameObject[Size, Size];
 
         for (int i = 0; i < Size; i++)
-        {
             for (int j = 0; j < Size; j++)
             {
                 Vector2 pos = Calculs.CalculatePoint(i, j);
                 nodeMatrix[i, j] = new Node(i, j, pos);
             }
-        }
 
         for (int i = 0; i < Size; i++)
-        {
             for (int j = 0; j < Size; j++)
             {
                 nodeMatrix[i, j].WayList = new List<Way>();
@@ -88,7 +85,6 @@ public class GameManager : MonoBehaviour
                         nodeMatrix[i, j].WayList.Add(new Way(nodeMatrix[ni, nj], 1f));
                 }
             }
-        }
 
         startX = Random.Range(0, Size);
         startY = Random.Range(0, Size);
@@ -103,25 +99,18 @@ public class GameManager : MonoBehaviour
                 nodeMatrix[i, j].Heuristic = Calculs.CalculateHeuristic(nodeMatrix[i, j], endX, endY);
 
         for (int i = 0; i < Size; i++)
-        {
             for (int j = 0; j < Size; j++)
             {
                 Vector2 pos = Calculs.CalculatePoint(i, j);
                 tokenObjects[i, j] = Instantiate(tokenNode, pos, Quaternion.identity);
             }
-        }
 
-        Vector2 startPos = Calculs.CalculatePoint(startX, startY);
-        Vector2 endPos = Calculs.CalculatePoint(endX, endY);
-
-        startTokenObj = Instantiate(tokenStart, startPos, Quaternion.identity);
-        endTokenObj = Instantiate(tokenEnd, endPos, Quaternion.identity);
-
+        startTokenObj = Instantiate(tokenStart, Calculs.CalculatePoint(startX, startY), Quaternion.identity);
+        endTokenObj = Instantiate(tokenEnd, Calculs.CalculatePoint(endX, endY), Quaternion.identity);
         SetSortingOrder(startTokenObj, 30);
         SetSortingOrder(endTokenObj, 30);
 
         logText.text = "";
-        ForceLayout();
         AppendLog("Grid initialized. Press Start to run A*.");
         isRunning = false;
     }
@@ -162,18 +151,13 @@ public class GameManager : MonoBehaviour
         List<Node> openVisited;
 
         List<Node> path = AStarPathfinder.FindPath(
-            nodeMatrix,
-            startX, startY,
-            endX, endY,
-            out closedVisited,
-            out openVisited
-        );
+            nodeMatrix, startX, startY, endX, endY,
+            out closedVisited, out openVisited);
 
         foreach (Node node in openVisited)
         {
             if (node.PositionX == startX && node.PositionY == startY) continue;
             if (node.PositionX == endX && node.PositionY == endY) continue;
-
             ReplaceToken(node.PositionX, node.PositionY, tokenOpen);
             EnsureStartEndOnTop();
             AppendLog($"Open: ({node.PositionX}, {node.PositionY}) G={node.GCost:F2} H={node.Heuristic:F2}");
@@ -184,7 +168,6 @@ public class GameManager : MonoBehaviour
         {
             if (node.PositionX == startX && node.PositionY == startY) continue;
             if (node.PositionX == endX && node.PositionY == endY) continue;
-
             ReplaceToken(node.PositionX, node.PositionY, tokenClosed);
             EnsureStartEndOnTop();
             AppendLog($"Closed: ({node.PositionX}, {node.PositionY})");
@@ -198,7 +181,6 @@ public class GameManager : MonoBehaviour
             {
                 if (node.PositionX == startX && node.PositionY == startY) continue;
                 if (node.PositionX == endX && node.PositionY == endY) continue;
-
                 ReplaceToken(node.PositionX, node.PositionY, tokenPath);
                 EnsureStartEndOnTop();
                 AppendLog($"Path: ({node.PositionX}, {node.PositionY})");
@@ -219,7 +201,6 @@ public class GameManager : MonoBehaviour
     {
         if (tokenObjects[x, y] != null)
             Destroy(tokenObjects[x, y]);
-
         Vector2 pos = Calculs.CalculatePoint(x, y);
         tokenObjects[x, y] = Instantiate(prefab, pos, Quaternion.identity);
         SetSortingOrder(tokenObjects[x, y], 24);
@@ -242,20 +223,17 @@ public class GameManager : MonoBehaviour
     void AppendLog(string message)
     {
         logText.text += message + "\n";
-        ForceLayout();
         StartCoroutine(ScrollToBottom());
-    }
-
-    void ForceLayout()
-    {
-        LayoutRebuilder.ForceRebuildLayoutImmediate(logContent);
-        Canvas.ForceUpdateCanvases();
     }
 
     IEnumerator ScrollToBottom()
     {
-        yield return null;
-        yield return null;
+        // First frame: TMP recalculates preferred height
+        yield return new WaitForEndOfFrame();
+        // Force ContentSizeFitter to apply the new height
+        Canvas.ForceUpdateCanvases();
+        // Second frame: ScrollRect recalculates scroll bounds
+        yield return new WaitForEndOfFrame();
         scrollRect.verticalNormalizedPosition = 0f;
     }
 }
